@@ -1,0 +1,59 @@
+version: "3"
+
+services:
+  rosmaster:
+    container_name: rosmaster
+    image: ${IMAGE}
+    command: roscore
+    networks: 
+      - ${NETWORK}
+  bag:
+    container_name: bag
+    image: ${IMAGE}
+    depends_on:
+      - rosmaster
+    command: rosbag play -l ${BAG}
+    networks: 
+      - ${NETWORK}
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - ROS_MASTER_URI=http://rosmaster:11311
+    volumes:
+      - ${HOST_VOLUME}:${MOUNT_VOLUME}
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [$GPU]
+            capabilities: [gpu]
+  rviz:
+    container_name: rviz
+    image: ${IMAGE}
+    depends_on:
+      - rosmaster
+      - bag
+    command: rviz -d ${RVIZ_CONFIG}
+    networks: 
+      - ${NETWORK}
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - ROS_MASTER_URI=http://rosmaster:11311
+      - QT_X11_NO_MITSHM=1
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ${HOST_VOLUME}:${MOUNT_VOLUME}
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [$GPU]
+            capabilities: [gpu]
+
+networks:
+  ros:
+    name: ${NETWORK}
